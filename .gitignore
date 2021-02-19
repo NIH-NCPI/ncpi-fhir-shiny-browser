@@ -1,3 +1,6 @@
+#Secret files
+web_secret.json
+
 # History files
 .Rhistory
 .Rapp.history
