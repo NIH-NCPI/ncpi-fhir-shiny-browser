@@ -25,7 +25,7 @@ ui <- fluidPage(
                 tabPanel("Participant",
                     textInput("participant_reference",
                               "Participant Reference:",
-                              value = "Patient/80414"),
+                              value = "Patient/546692"),
                     helpText("Particiant Information:"),
                     textOutput("patientID"),
                     textOutput("patientGender")
@@ -71,7 +71,7 @@ server <- function(input, output, session) {
     #Create some reading functions to query the fhir server and extract resource responses. get_all() returns a list of resources returned by the query, extracting from Bundles and paging as necessary.
     
     c_get=function(request) {
-        res=GET(paste0(input$server,request),add_headers(Cookie=sprintf("AWSELBAuthSessionCookie-0=%s",input$cookie)))
+        res=GET(paste0(input$server,request),add_headers(Cookie=sprintf("AWSELBAuthSessionCookie-0=%s",input$cookie), ContentType="application/json"))
         content(res,as="parsed",type="application/json")
     }
     get_all=function(request) {
@@ -81,7 +81,9 @@ server <- function(input, output, session) {
             my_content=c_get(next_request)
             if(my_content$resourceType=="Bundle") {
                 all_content=append(all_content,lapply(my_content$entry,function(x){x$resource}))
-                next_request=substring(paste0(sapply(my_content$link,function(x){ifelse(x$relation=="next",x$url,"")}),collapse = ""),22)
+                next_request=strsplit(paste0(sapply(my_content$link,function(x){ifelse(x$relation=="next",x$url,"")}),collapse = ""),
+                                      "?",fixed=T)[[1]][2]
+                next_request=ifelse(is.na(next_request),"",paste0("?",next_request))
             }
             else {
                 all_content=append(all_content,list(my_content))
@@ -118,26 +120,26 @@ server <- function(input, output, session) {
     })
     # Gather Observations and create a nice table from the resources
     observations <- reactive({
-        get_all(sprintf("Observation/?patient=%s",patientID()))
+        get_all(sprintf("Condition/?patient=%s&_profile:below=https://ncpi-fhir.github.io/ncpi-fhir-ig/StructureDefinition/phenotype",patientID()))
     })
     observationTable <- reactive({
         data.frame(name=sapply(observations(),function(x){ifelse(is.null(x$code$coding[[1]]$display),x$code$text,x$code$coding[[1]]$display)}),
-                       code=sapply(observations(),function(x){x$code$coding[[1]]$code}),
-                       status=sapply(observations(),function(x){x$interpretation[[1]]$coding[[1]]$code}))
+                   code=sapply(observations(),function(x){ifelse(is.null(x$code$coding[[1]]$code),"NULL",x$code$coding[[1]]$code)}),
+                   status=sapply(observations(),function(x){ifelse(is.null(x$verificationStatus$text),"NULL",x$verificationStatus$text)}))
     })
     #Gather Conditions and create a nice table from the resources
     conditions <- reactive({
-        get_all(sprintf("Condition/?patient=%s",patientID()))
+        get_all(sprintf("Condition/?patient=%s&_profile:below=https://ncpi-fhir.github.io/ncpi-fhir-ig/StructureDefinition/disease",patientID()))
     })
     conditionTable <- reactive({
         data.frame(name=sapply(conditions(),function(x){ifelse(is.null(x$code$coding[[1]]$display),x$code$text,x$code$coding[[1]]$display)}),
                    code=sapply(conditions(),function(x){ifelse(is.null(x$code$coding[[1]]$code),"NULL",x$code$coding[[1]]$code)}),
-                   status=sapply(conditions(),function(x){ifelse(is.null(x$verificationStatus$text),"NULL",x$verificationStatus$text)}))
+                   status=sapply(conditions(),function(x){ifelse(is.null(x$verificationStatus$code$coding[[1]]$code),"NULL",x$verificationStatus$code$coding[[1]]$code)}))
     })
     
     #Request info from Monarch API on button press
     simMatches <- reactive({
-        sim_search((filter(observationTable(),status=="POS"))$code)
+        sim_search((filter(observationTable(),status=="Positive"))$code)
     })
     #Create table from API return
     simMatchTable <- reactive({
@@ -153,15 +155,15 @@ server <- function(input, output, session) {
     output$patientGender <- renderText({
         patientInput()[[1]]$gender
     })
-
+    
     # Provide the table of HPO terms for reference
     output$hpo_terms <- renderDT( 
-        datatable(observationTable()%>% arrange(desc(status)))
+        datatable(observationTable() %>% arrange(desc(status)))
         )
     
     # Provide the list of Conditions for reference
     output$listed_conditions <- renderDT( 
-        datatable(conditionTable()%>% arrange(desc(status)))
+        datatable(conditionTable() %>% arrange(desc(status)))
     )
     
     # Provide the list of potential matches
