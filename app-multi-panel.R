@@ -78,6 +78,29 @@ ui <- fluidPage(
            )
        )
        ),
+       tabPanel("DRS Browser",fluidPage(
+           fluidRow(
+               column(4,
+                      helpText("Particiant Information:"),
+                      tableOutput("participant_details_drs"),
+                      helpText("List of files for this participant:"),
+                      DTOutput("drs_table")
+                      
+               ),
+               column(8,
+                      navbarPage("File Details:",
+                                 tabPanel("JSON Resource view",
+                                          verbatimTextOutput("drs_json")
+                                 ),
+                                 tabPanel("DRS JSON view",
+                                          verbatimTextOutput("drs_resolved_json")
+ 
+                                 )
+                      )
+               )
+           )
+       )
+       ),
        tabPanel("Monarch API query",
             sidebarLayout(
                 #Controls re a participant
@@ -308,7 +331,7 @@ server <- function(input, output, session) {
     
     # Create the participant summary
     
-    output$participant_details_monarch <- output$participant_details <- renderTable({
+    output$participant_details_drs <- output$participant_details_monarch <- output$participant_details <- renderTable({
         req(input$study_participant_table_rows_selected)
         studyParticipantTable()[input$study_participant_table_rows_selected,] %>% 
             transmute(id=id, Gender=gender, Race=race, Ethnicity=ethnicity)
@@ -331,8 +354,46 @@ server <- function(input, output, session) {
     })
     
     ###
-    # Log output
+    # DocumentReferences
     ###
+    
+    #
+    drsDocuments <- reactive({
+        get_all(sprintf("DocumentReference/?patient=%s&_profile:below=https://ncpi-fhir.github.io/ncpi-fhir-ig/StructureDefinition/ncpi-drs-document-reference",patientID()))
+    })
+    drsDocumentTable <- reactive({
+        my.data=data.frame(id=sapply(drsDocuments(),function(x){x$id}),
+                           format=sapply(drsDocuments(),function(x){ifelse(is.null(x$content[[1]]$format$display),"NULL",x$content[[1]]$format$display)}),
+                           reference=sapply(drsDocuments(),function(x){ifelse(is.null(x$content[[1]]$attachment$url),"NULL",x$content[[1]]$attachment$url)}),
+                           resource=sapply(drsDocuments(),toJSON,pretty = T,auto_unbox = T))
+        if(nrow(my.data)==0) {
+            my.data=data.frame(id="<No files>",
+                               format="<No files>",
+                               reference="<No files>",
+                               resource="<No files>")
+        }
+        my.data
+        
+    })
+    
+    output$drs_table <- renderDT({
+        datatable(drsDocumentTable(),selection = "single", rownames=F,
+                  options=list(columnDefs = list(list(visible=FALSE, targets=3))))
+    })
+    
+    output$drs_json <- renderText({
+        drsDocumentTable()[input$drs_table_rows_selected,"resource"]
+    })
+    
+    output$drs_resolved_json <- renderText({
+        parts=strsplit(drsDocumentTable()[input$drs_table_rows_selected,"reference"],split = "/")[[1]]
+        drs_https_url=sprintf("https://%s/ga4gh/drs/v1/objects/%s",parts[3],parts[4])
+        
+        drs_response=GET(drs_https_url)
+        toJSON(content(drs_response,as="parsed",type="application/json"),auto_unbox = T, pretty = T)
+    })
+    
+    
 }
 
 # Run the application 
