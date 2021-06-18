@@ -1,4 +1,4 @@
 {
 "AWSELBAuthSessionCookie-0": "Full text of your cookie here",
-"server": "https://ncpi-api-fhir-service-controlled.kidsfirstdrc.org/"
+"server": "https://ncpi-api-fhir-service-dev.kidsfirstdrc.org/"
 }
