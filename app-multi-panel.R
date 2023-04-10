@@ -159,7 +159,7 @@ server <- function(input, output, session) {
     })
     # Gather Phenotypes and create a nice table from the resources
     phenotypes <- reactive({
-        get_all(sprintf("Condition/?patient=%s&_profile:below=https://ncpi-fhir.github.io/ncpi-fhir-ig/StructureDefinition/phenotype",patientID()))
+        get_all(sprintf("Condition/?patient=%s&_profile:below=https://nih-ncpi.github.io/ncpi-fhir-ig/StructureDefinition/phenotype",patientID()))
     })
     phenotypeTable <- reactive({
         my.data=data.frame(name=sapply(phenotypes(),function(x){ifelse(is.null(x$code$coding[[1]]$display),x$code$text,x$code$coding[[1]]$display)}),
@@ -174,7 +174,7 @@ server <- function(input, output, session) {
     })
     #Gather Conditions and create a nice table from the resources
     diseases <- reactive({
-        get_all(sprintf("Condition/?patient=%s&_profile:below=https://ncpi-fhir.github.io/ncpi-fhir-ig/StructureDefinition/disease",patientID()))
+        get_all(sprintf("Condition/?patient=%s&_profile:below=https://nih-ncpi.github.io/ncpi-fhir-ig/StructureDefinition/disease",patientID()))
     })
     diseaseTable <- reactive({
         my.data=data.frame(name=sapply(diseases(),function(x){ifelse(is.null(x$code$coding[[1]]$display),x$code$text,x$code$coding[[1]]$display)}),
@@ -359,7 +359,7 @@ server <- function(input, output, session) {
     
     #
     drsDocuments <- reactive({
-        get_all(sprintf("DocumentReference/?patient=%s&_profile:below=https://ncpi-fhir.github.io/ncpi-fhir-ig/StructureDefinition/ncpi-drs-document-reference",patientID()))
+        get_all(sprintf("DocumentReference/?patient=%s&_profile:below=https://nih-ncpi.github.io/ncpi-fhir-ig/StructureDefinition/drs-document-reference",patientID()))
     })
     drsDocumentTable <- reactive({
         my.data=data.frame(id=sapply(drsDocuments(),function(x){x$id}),

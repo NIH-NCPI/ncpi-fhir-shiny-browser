@@ -1,10 +1,13 @@
 ## FHIR server helper functions
+library(httr)
+library(jsonlite)
+
 #Create some reading functions to query the fhir server and extract resource responses. 
 
 c_get=function(request) {
   my.request = paste0(input$server,request)
-  res=GET(my.request,add_headers(Cookie=sprintf("AWSELBAuthSessionCookie-0=%s",input$cookie), ContentType="application/json"))
-  content(res,as="parsed",type="application/json")
+  res=httr::GET(my.request,httr::add_headers(Cookie=sprintf("AWSELBAuthSessionCookie-0=%s",input$cookie), ContentType="application/json"))
+  httr::content(res,as="parsed",type="application/json")
 }
 
 #Returns a list of resources returned by the query, extracting from Bundles and paging as necessary.
